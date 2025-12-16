@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
-"""
-Fast LP lower bound for VRPSD (nodes + Poisson lambda) via mean-demand CVRP SCF LP relaxation,
-solved by HiGHS through scipy.optimize.linprog (Python 3.13 compatible).
-
-Default params are in CONFIG, but you can override in console:
-  python LB.py --nodes ... --demand ... --Q 50 --m 10 --exact-m --timelimit 20
-"""
-
-# =======================
-# CONFIG (DEFAULTS)
-# =======================
 CONFIG = {
     "nodes_csv": r"C:\Users\haora\PyCharmMiscProject\datasets\nodes_100_centered.csv",
     "demand_csv": r"C:\Users\haora\PyCharmMiscProject\datasets\demand_100_centered.csv",
@@ -21,7 +8,6 @@ CONFIG = {
     "time_limit_sec": 30.0,
     "quiet": False,
 }
-# =======================
 
 import argparse
 import math
@@ -265,3 +251,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

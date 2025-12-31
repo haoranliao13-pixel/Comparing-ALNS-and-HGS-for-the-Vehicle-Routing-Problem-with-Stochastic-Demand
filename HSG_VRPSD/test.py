@@ -4,17 +4,16 @@ from typing import List, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 
-# ================== 参数（按需修改） ==================
-SEEDS = 8            # HGS 候选解数量（不同随机种）
-TIME_LIMIT = 10     # HGS 每次求解的时间(秒)
-Q = 60             # 车辆容量
-K = 35                # 车辆上界（传给 HGS；留空则由 HGS 自处理）
-S_SMALL = 80        # 小样本场景数（共同随机数）
-S_BIG = 300         # 大样本场景数（共同随机数；0 表示不进行复评）
-ELITE_FRAC = 1/3     # 进入大样本复评的比例
-MIN_ELITE = 5        # 进入大样本复评的最少候选数
-SEED_SMALL = 1234    # 共同随机数：小样本 seed
-SEED_BIG = 5678      # 共同随机数：大样本 seed
+SEEDS = 8           
+TIME_LIMIT = 10     
+Q = 220            
+K = 90               
+S_SMALL = 80        
+S_BIG = 300         
+ELITE_FRAC = 1/3    
+MIN_ELITE = 5        
+SEED_SMALL = 1234    
+SEED_BIG = 5678     
 TIME_WALL = 10
 HGS_CANDIDATES = [
     "pyhygese.py"
@@ -24,8 +23,8 @@ SAA_CANDIDATES = [
 ]
 # =====================================================
 BASEDIR = os.path.dirname(os.path.realpath(__file__))
-NODES_CSV  = r"C:\Users\haora\PyCharmMiscProject\datasets\nodes_400_centered.csv"
-DEMAND_CSV = r"C:\Users\haora\PyCharmMiscProject\datasets\demand_400_centered.csv"
+NODES_CSV  = r"C:\Users\haora\PyCharmMiscProject\CVRPLib\csv\nodes_X-n303-k21.csv"
+DEMAND_CSV = r"C:\Users\haora\PyCharmMiscProject\CVRPLib\csv\demand_X-n303-k21.csv"
 
 
 def _import_from_file_strict(pyname: str):
@@ -65,27 +64,79 @@ for name in required_saa:
 
 # 2) 读入数据
 def read_nodes_and_demands(nodes_csv: str, demand_csv: str):
-    coords = {}
-    with open(nodes_csv, "r", encoding="utf-8") as f:
-        for row in csv.reader(f):
-            if not row or row[0].startswith("#") or row[0].lower() == "node_id":
-                continue
-            idx = int(row[0]); x = float(row[1]); y = float(row[2])
-            coords[idx] = (x, y)
-    n = max(coords.keys())
-    coords_list = [coords[i] for i in range(n+1)]  # 0..n
+    """
+    Read node coordinates and stochastic demand parameters from CSV files.
 
-    lam = [0.0]*(n+1)
-    with open(demand_csv, "r", encoding="utf-8") as f:
+    Compatible with:
+      - with header:  id,x,y   /  id,lambda (or id,demand)
+      - without header
+      - UTF-8 with BOM
+    """
+    def _is_int_token(s: str) -> bool:
+        s = s.strip()
+        if not s:
+            return False
+        if s[0] in "+-":
+            s = s[1:]
+        return s.isdigit()
+
+    # ---- nodes ----
+    coords = {}
+    with open(nodes_csv, "r", encoding="utf-8-sig", newline="") as f:
         for row in csv.reader(f):
-            if not row or row[0].startswith("#") or row[0].lower() == "node_id":
+            if not row:
                 continue
-            idx = int(row[0]); l = float(row[1])
-            lam[idx] = l
+            c0 = row[0].strip()
+            if not c0 or c0.startswith("#"):
+                continue
+            c0l = c0.lower()
+            # skip headers like: id,x,y or node_id,x,y
+            if c0l in ("id", "node_id"):
+                continue
+            # skip any non-numeric first token (robust to accidental headers)
+            if not _is_int_token(c0):
+                continue
+            if len(row) < 3:
+                continue
+            idx = int(c0)
+            x = float(row[1]); y = float(row[2])
+            coords[idx] = (x, y)
+
+    if not coords:
+        raise RuntimeError(f"No coordinates parsed from {nodes_csv}")
+
+    n = max(coords.keys())
+    # ensure 0..n exist (your downstream assumes this)
+    missing = [i for i in range(n + 1) if i not in coords]
+    if missing:
+        raise RuntimeError(f"Missing node ids in {nodes_csv}: {missing[:10]}{'...' if len(missing)>10 else ''}")
+
+    coords_list = [coords[i] for i in range(n + 1)]  # 0..n
+
+    # ---- demands (lambda) ----
+    lam = [0.0] * (n + 1)
+    with open(demand_csv, "r", encoding="utf-8-sig", newline="") as f:
+        for row in csv.reader(f):
+            if not row:
+                continue
+            c0 = row[0].strip()
+            if not c0 or c0.startswith("#"):
+                continue
+            c0l = c0.lower()
+            # skip headers like: id,lambda  / id,demand / node_id,lambda
+            if c0l in ("id", "node_id"):
+                continue
+            if not _is_int_token(c0):
+                continue
+            if len(row) < 2:
+                continue
+            idx = int(c0)
+            l = float(row[1])
+            if 0 <= idx <= n:
+                lam[idx] = l
+
     lam[0] = 0.0
     return coords_list, lam
-
-
 def build_distance(coords: List[Tuple[float,float]]):
     n = len(coords)
     D = [[0.0]*n for _ in range(n)]
@@ -99,7 +150,7 @@ def build_distance(coords: List[Tuple[float,float]]):
 
 coords, lam_vec = read_nodes_and_demands(NODES_CSV, DEMAND_CSV)
 D = build_distance(coords)
-demand_det = lam_vec[:]  # 期望需求；已确保 demand_det[0]=0
+demand_det = lam_vec[:]
 
 # === 可行性自检 + K 下限提示/自动修正（放在第一次 HGS 调用之前）===
 lam = np.asarray(demand_det, dtype=float)  # 0号是仓库
@@ -193,6 +244,30 @@ use_big = bool(scenarios_big) and (time_left() > 5.0)   # 剩余>5秒才做大�
 if not candidates:
     raise RuntimeError("[timewall] 未得到任何候选路线，无法评估。")
 
+
+# === Build true iteration-like expected costs in generation order (small-sample only) ===
+ecost_iter_small = []
+try:
+    if candidates:
+        # Use a cache so identical routes don't get re-evaluated
+        _tmp_cache = SAA.SAACache()
+        for _R in candidates:
+            # Evaluate this single candidate on the small-sample CRN
+            _best1, _sc_small1, _ = SAA.evaluate_routes(
+                candidates=[_R],
+                coords=coords,
+                Q=float(Q),
+                scenarios_small=scenarios_small,
+                scenarios_big=None,
+                elite_frac=1.0,
+                min_elite=1,
+                cache=_tmp_cache,
+            )
+            _cost1 = float(_sc_small1[0][0])
+            ecost_iter_small.append(_cost1)
+except Exception as e:
+    print(f"[warn] 构造真实小样本迭代成本序列失败: {e}")
+
 best, scored_small, rescored_big = SAA.evaluate_routes(
     candidates=candidates,
     coords=coords,
@@ -221,57 +296,65 @@ print("\n>>> 选中的方案 期望成本(返库补救)：{:.4f}".format(best_co
 print(">>> 方案路线：", best_routes)
 
 
+
+
 # —— 全局一点点美化（不依赖 seaborn）——
-from typing import Iterable, Tuple, Optional
+from typing import Iterable, Tuple, Optional, Sequence, List
+import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+import os
 
-plt.rcParams.update({
-    "figure.figsize": (7.5, 5.2),
-    "axes.grid": True,
-    "axes.spines.top": False,
-    "axes.spines.right": False,
-    "grid.alpha": 0.25,
-    "font.size": 11,
-})
-
-def plot_history_unified(
-    history: Iterable[Tuple[int, float]],
-    *,
-    algo_name: str = "ALNS",
-    title: Optional[str] = None,
-    show_global_best: bool = True,
-    save_path: Optional[str] = None,
-):
+# ====== Academic plotting style (no seaborn) ======
+def set_academic_mpl_style(*, base_fontsize: int = 11) -> None:
     """
-    history: [(epoch, best_obj), ...]
-    - 不在曲线末尾做点标注
-    - 标题内展示 cost（全程最优 或 最后一条）
+    Set a clean, publication-friendly Matplotlib style that is:
+    - serif font (Computer Modern-like)
+    - thin grids, visible minor ticks
+    - vector-friendly defaults
     """
-    history = list(history)
-    if not history:
-        raise ValueError("history 为空")
+    mpl.rcParams.update({
+        "figure.figsize": (8.5, 6.0),
+        "figure.dpi": 120,
+        "savefig.dpi": 300,
+        "savefig.transparent": True,
+        "font.size": base_fontsize,
+        "axes.labelsize": base_fontsize,
+        "axes.titlesize": base_fontsize + 1,
+        "legend.fontsize": base_fontsize - 1,
+        "xtick.labelsize": base_fontsize - 1,
+        "ytick.labelsize": base_fontsize - 1,
+        "axes.grid": True,
+        "grid.color": "#999999",
+        "grid.linewidth": 0.8,
+        "grid.alpha": 0.25,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "axes.linewidth": 0.8,
+        "lines.linewidth": 1.8,
+        "lines.markersize": 4.5,
+        "text.usetex": False,                 # keep portable by default
+        "font.family": "serif",
+        "mathtext.fontset": "cm",
+        "legend.frameon": False,
+        "legend.handlelength": 1.8,
+        "legend.borderpad": 0.2,
+        "axes.formatter.useoffset": False,
+        "axes.formatter.limits": (-3, 4),
+    })
 
-    xs = [e for e, _ in history]
-    ys = [v for _, v in history]
-    last_best = ys[-1]
-    global_best = min(ys)
+# Apply style once
+set_academic_mpl_style()
 
-    if title is None:
-        cost = global_best if show_global_best else last_best
-        title = f"{algo_name} convergence  |  cost = {cost:.2f}"
-
-    fig, ax = plt.subplots()
-    ax.plot(xs, ys, linewidth=1.8)
-    ax.set_xlabel("Iteration (epoch)")
-    ax.set_ylabel("Best objective")
-    ax.set_title(title)
-    fig.tight_layout()
-    if save_path:
-        fig.savefig(save_path, dpi=150)
-    plt.show()
-
-from typing import List, Tuple, Optional
-import matplotlib.pyplot as plt
+def _save(fig, path: Optional[str]):
+    if not path:
+        return
+    ext = os.path.splitext(path)[1].lower()
+    # Encourage vector formats for papers
+    if ext in (".pdf", ".svg"):
+        fig.savefig(path, bbox_inches="tight")
+    else:
+        fig.savefig(path, dpi=300, bbox_inches="tight")
 
 def _xy_from_coords(coords):
     try:
@@ -282,52 +365,179 @@ def _xy_from_coords(coords):
         ys = [float(y) for _, y in coords]
     return xs, ys
 
+def plot_history_unified(
+    history: Iterable[Tuple[int, float]],
+    *,
+    algo_name: str = "ALNS",
+    title: Optional[str] = None,
+    show_global_best: bool = True,
+    save_path: Optional[str] = None,
+    with_running_best: bool = True,
+    logy: bool = False,
+):
+    """
+    history: [(iteration, best_obj_so_far), ...]
+
+    Enhancements:
+      - cleaner style
+      - optional running-best overlay
+      - optional log-scale on y-axis
+      - vector-friendly save (pdf/svg) when extension suggests it
+    """
+    history = list(history)
+    if not history:
+        raise ValueError("history 为空")
+
+    xs = [int(e) for e, _ in history]
+    ys = [float(v) for _, v in history]
+
+    global_best = float(np.min(ys))
+    last_best   = float(ys[-1])
+
+    if title is None:
+        cost = global_best if show_global_best else last_best
+        title = f"Convergence of {algo_name}  |  cost = {cost:.2f}"
+
+    fig, ax = plt.subplots(constrained_layout=True)
+    ax.plot(xs, ys, marker="o", linestyle="-", label="best so far")
+
+    if with_running_best:
+        running = np.minimum.accumulate(ys)
+        ax.plot(xs, running, linestyle="--", label="running best")
+
+    if logy:
+        ax.set_yscale("log")
+
+    ax.set_xlabel("Iteration")
+    ax.set_ylabel("Objective")
+    ax.set_title(title)
+    ax.grid(True, which="both", alpha=0.25)
+    ax.minorticks_on()
+    ax.legend(ncols=2)
+
+    _save(fig, save_path)
+    plt.show()
+
+def plot_expected_cost_iteration(
+    costs: Sequence[float] | Sequence[Tuple[int, float]],
+    *,
+    algo_name: str = "HGS+SAA",
+    title: Optional[str] = "Expected cost (small-sample) over iterations",
+    save_path: Optional[str] = None,
+    with_running_best: bool = False,
+    logy: bool = False,
+):
+    """
+    Draw "Expected cost (small-sample) over iterations" like the reference style.
+    Accepts either:
+        - costs = [c0, c1, c2, ...]                (implicit iterations 1..n)
+        - costs = [(iter0, c0), (iter1, c1), ...]  (explicit iterations)
+    """
+    if len(costs) == 0:
+        raise ValueError("costs 为空")
+
+    if isinstance(costs[0], (tuple, list)) and len(costs[0]) >= 2:  # type: ignore[index]
+        xs = [int(it) for it, _ in costs]      # type: ignore[assignment]
+        ys = [float(c) for _, c in costs]      # type: ignore[assignment]
+    else:
+        xs = list(range(1, len(costs) + 1))    # type: ignore[arg-type]
+        ys = [float(c) for c in costs]         # type: ignore[arg-type]
+
+    fig, ax = plt.subplots(constrained_layout=True)
+    ax.plot(xs, ys, marker="o", linestyle="-")
+
+    if with_running_best:
+        running = np.minimum.accumulate(ys)
+        ax.plot(xs, running, linestyle="--")
+
+    if logy:
+        ax.set_yscale("log")
+
+    ax.set_xlabel("Iterations")
+    ax.set_ylabel("Expected cost (SAA small sample)")
+    ax.set_title(title)
+    ax.grid(True, which="both", alpha=0.3)
+    ax.minorticks_on()
+
+    _save(fig, save_path)
+    plt.show()
+
 def plot_routes_unified(
     coords: List[Tuple[float, float]] | "np.ndarray",
     routes: List[List[int]],
     *,
-    cost: Optional[float] = None,       # 可选：在标题显示
+    cost: Optional[float] = None,
     algo_name: str = "VRPSD",
-    title: Optional[str] = None,
+    title: Optional[str] = "Final routes",
     save_path: Optional[str] = None,
-    annotate_routes: bool = True,
+    annotate_routes: bool = False,
 ):
     """
-    routes: [[...], [...], ...]  每条只含客户索引（不含 0）；coords[0] 是仓库
+    Draw routes in the style of the reference:
+    - Blue square depot
+    - Orange circular customer nodes
+    - Colored route polylines with small circular markers
+    - Clean grid, equal aspect
     """
     xs, ys = _xy_from_coords(coords)
 
-    if title is None:
-        title = f"Best routes ({algo_name})" + (f"  |  E[cost] = {cost:.2f}" if cost is not None else "")
+    fig, ax = plt.subplots(constrained_layout=True)
 
-    fig, ax = plt.subplots()
-    ax.scatter(xs[1:], ys[1:], s=22, label="customers")
-    ax.scatter([xs[0]], [ys[0]], marker="s", s=100, label="depot")
-
-    for ridx, r in enumerate(routes, 1):
+    # Plot routes with color cycle; small markers along the lines
+    for r in routes:
         seq = [0] + r + [0]
         px = [xs[i] for i in seq]; py = [ys[i] for i in seq]
-        ax.plot(px, py, linewidth=1.8, label=f"R{ridx}")
-        if annotate_routes and r:
-            mid = r[len(r)//2]
-            ax.text(xs[mid] + 0.15, ys[mid] + 0.15, f"R{ridx}", fontsize=9)
+        ax.plot(px, py, marker="o", linewidth=1.6)
+
+    # Customers (orange) and depot (blue square)
+    ax.scatter(xs[1:], ys[1:], s=28, label="Customers")
+    ax.scatter([xs[0]], [ys[0]], marker="s", s=120, label="Depot")
+
+    if annotate_routes and routes:
+        for ridx, r in enumerate(routes, 1):
+            if r:
+                mid = r[len(r)//2]
+                ax.text(xs[mid], ys[mid], f"R{ridx}", fontsize=9, ha="center", va="center")
 
     ax.set_title(title)
-    ax.set_xlabel("x"); ax.set_ylabel("y")
-    ax.axis("equal")
-    ax.legend(loc="best", fontsize=8, ncols=2)
-    fig.tight_layout()
-    if save_path:
-        fig.savefig(save_path, dpi=150)
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_aspect("equal", adjustable="box")
+    ax.legend(frameon=True, fancybox=False, edgecolor="0.8", loc="upper left")
+    ax.grid(True, which="both", alpha=0.3)
+    ax.minorticks_on()
+
+    _save(fig, save_path)
     plt.show()
 
-# 若有历史就画；没有可以先不画
-# plot_history_unified(history, algo_name="HGS+SAA", show_global_best=True,
-#                      save_path="hgs_saa_convergence.png")
-
+# === Example call (kept) ===
 plot_routes_unified(coords, best_routes,
                     cost=best_cost, algo_name="HGS+SAA",
-                    save_path="hgs_saa_routes.png")
+                    save_path="hgs_saa_routes.pdf")
 
-
-
+# === Auto-plot expected cost curve (true iteration order) ===
+try:
+    if 'ecost_iter_small' in globals() and ecost_iter_small:
+        _xs = list(range(1, len(ecost_iter_small)+1))
+        _ys = [float(v) for v in ecost_iter_small]
+        # Prefer the main plotting function if present
+        _f = globals().get('plot_expected_cost_iteration')
+        if callable(_f):
+            _f(_ys,
+               title="Expected cost (small-sample) over iterations",
+               save_path="expected_cost_small_sample.pdf",
+               with_running_best=False)
+        else:
+            # Fallback minimal plot to guarantee a figure is saved
+            import matplotlib.pyplot as plt
+            fig, ax = plt.subplots(constrained_layout=True)
+            ax.plot(_xs, _ys, marker="o", linestyle="-")
+            ax.set_xlabel("Iterations")
+            ax.set_ylabel("Expected cost (SAA small sample)")
+            ax.set_title("Expected cost (small-sample) over iterations")
+            ax.grid(True, which="both", alpha=0.3)
+            ax.minorticks_on()
+            fig.savefig("expected_cost_small_sample.pdf", bbox_inches="tight")
+            plt.show()
+except Exception as e:
+    print(f"[warn] 绘制 expected cost 迭代曲线失败: {e}")

@@ -13,8 +13,8 @@ S_SMALL = 80        # 小样本场景数（共同随机数）
 S_BIG = 300         # 大样本场景数（共同随机数；0 表示不进行复评）
 ELITE_FRAC = 1/3     # 进入大样本复评的比例
 MIN_ELITE = 5        # 进入大样本复评的最少候选数
-SEED_SMALL = 1234    # 共同随机数：小样本 seed
-SEED_BIG = 5678      # 共同随机数：大样本 seed
+SEED_SMALL = 12345   # 共同随机数：小样本 seed
+SEED_BIG = 54321      # 共同随机数：大样本 seed
 TIME_WALL = 10
 HGS_CANDIDATES = [
     "pyhygese.py"
@@ -26,7 +26,6 @@ SAA_CANDIDATES = [
 BASEDIR = os.path.dirname(os.path.realpath(__file__))
 NODES_CSV  = r"C:\Users\haora\PyCharmMiscProject\CVRPLib\csv\nodes_X-n303-k21.csv"
 DEMAND_CSV = r"C:\Users\haora\PyCharmMiscProject\CVRPLib\csv\demand_X-n303-k21.csv"
-
 
 def _import_from_file_strict(pyname: str):
     path = os.path.join(BASEDIR, pyname)
@@ -74,8 +73,7 @@ def read_nodes_and_demands(nodes_csv: str, demand_csv: str):
             if key.startswith("#") or key in ("node_id", "id"):
                 continue
             try:
-                idx = int(row[0])
-                x = float(row[1]); y = float(row[2])
+                idx = int(row[0]); x = float(row[1]); y = float(row[2])
             except Exception:
                 continue
             coords[idx] = (x, y)
@@ -261,6 +259,7 @@ print(">>> 方案路线：", best_routes)
 
 
 
+print(f"Number of routes: {len(best_routes)}")
 # ====== Variability across scenarios (std. deviation) ======
 try:
     # small-sample variability

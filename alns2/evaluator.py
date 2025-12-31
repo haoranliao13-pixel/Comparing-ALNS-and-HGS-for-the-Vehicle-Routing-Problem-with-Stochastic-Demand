@@ -39,6 +39,51 @@ def recourse_cost_one_scenario(instance: VRPSDInstance, routes: Solution, demand
         total += dist_matrix[prev, 0]
     return total
 
+def recourse_cost_and_restocks_one_scenario(
+    instance: VRPSDInstance,
+    routes: Solution,
+    demands_one: np.ndarray,
+    dist_matrix: Optional[np.ndarray] = None,
+) -> Tuple[float, int]:
+    """Return (total_cost, restock_count) for one demand scenario.
+
+    A restock event occurs when the vehicle arrives at customer c and the remaining
+    load is insufficient (load + demand > Q), triggering a depot round-trip c->0->c.
+    """
+    if dist_matrix is None:
+        dist_matrix = instance.distance_matrix()
+    Q = instance.Q
+    total = 0.0
+    restocks = 0
+    for r in routes:
+        load = 0.0
+        prev = 0
+        for c in r:
+            total += dist_matrix[prev, c]
+            dem = float(demands_one[c])
+            if load + dem > Q + 1e-9:
+                total += dist_matrix[c, 0] + dist_matrix[0, c]
+                restocks += 1
+                load = 0.0
+            load += dem
+            prev = c
+        total += dist_matrix[prev, 0]
+    return total, restocks
+
+
+def trips_one_scenario(
+    instance: VRPSDInstance,
+    routes: Solution,
+    demands_one: np.ndarray,
+    dist_matrix: Optional[np.ndarray] = None,
+) -> int:
+    """Number of depot departures (planned routes + restocks) for one scenario."""
+    routes_norm, _ = normalize_routes(routes)
+    if dist_matrix is None:
+        dist_matrix = instance.distance_matrix()
+    _, restocks = recourse_cost_and_restocks_one_scenario(instance, routes_norm, demands_one, dist_matrix)
+    return len(routes_norm) + restocks
+
 @dataclass
 class SAACache:
     cost_small: Dict[Tuple[Tuple[int, ...], ...], float]

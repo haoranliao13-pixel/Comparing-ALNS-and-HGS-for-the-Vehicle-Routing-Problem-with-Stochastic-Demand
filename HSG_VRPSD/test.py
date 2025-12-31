@@ -4,16 +4,17 @@ from typing import List, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 
-SEEDS = 8           
-TIME_LIMIT = 10     
-Q = 220            
-K = 90               
-S_SMALL = 80        
-S_BIG = 300         
-ELITE_FRAC = 1/3    
-MIN_ELITE = 5        
-SEED_SMALL = 1234    
-SEED_BIG = 5678     
+# ================== 参数（按需修改） ==================
+SEEDS = 8            # HGS 候选解数量（不同随机种）
+TIME_LIMIT = 10     # HGS 每次求解的时间(秒)
+Q = 220             # 车辆容量
+K = 90                # 车辆上界（传给 HGS；留空则由 HGS 自处理）
+S_SMALL = 80        # 小样本场景数（共同随机数）
+S_BIG = 300         # 大样本场景数（共同随机数；0 表示不进行复评）
+ELITE_FRAC = 1/3     # 进入大样本复评的比例
+MIN_ELITE = 5        # 进入大样本复评的最少候选数
+SEED_SMALL = 1234    # 共同随机数：小样本 seed
+SEED_BIG = 5678      # 共同随机数：大样本 seed
 TIME_WALL = 10
 HGS_CANDIDATES = [
     "pyhygese.py"
@@ -64,79 +65,40 @@ for name in required_saa:
 
 # 2) 读入数据
 def read_nodes_and_demands(nodes_csv: str, demand_csv: str):
-    """
-    Read node coordinates and stochastic demand parameters from CSV files.
-
-    Compatible with:
-      - with header:  id,x,y   /  id,lambda (or id,demand)
-      - without header
-      - UTF-8 with BOM
-    """
-    def _is_int_token(s: str) -> bool:
-        s = s.strip()
-        if not s:
-            return False
-        if s[0] in "+-":
-            s = s[1:]
-        return s.isdigit()
-
-    # ---- nodes ----
     coords = {}
-    with open(nodes_csv, "r", encoding="utf-8-sig", newline="") as f:
+    with open(nodes_csv, "r", encoding="utf-8") as f:
         for row in csv.reader(f):
             if not row:
                 continue
-            c0 = row[0].strip()
-            if not c0 or c0.startswith("#"):
+            key = row[0].strip().lower()
+            if key.startswith("#") or key in ("node_id", "id"):
                 continue
-            c0l = c0.lower()
-            # skip headers like: id,x,y or node_id,x,y
-            if c0l in ("id", "node_id"):
+            try:
+                idx = int(row[0])
+                x = float(row[1]); y = float(row[2])
+            except Exception:
                 continue
-            # skip any non-numeric first token (robust to accidental headers)
-            if not _is_int_token(c0):
-                continue
-            if len(row) < 3:
-                continue
-            idx = int(c0)
-            x = float(row[1]); y = float(row[2])
             coords[idx] = (x, y)
-
-    if not coords:
-        raise RuntimeError(f"No coordinates parsed from {nodes_csv}")
-
     n = max(coords.keys())
-    # ensure 0..n exist (your downstream assumes this)
-    missing = [i for i in range(n + 1) if i not in coords]
-    if missing:
-        raise RuntimeError(f"Missing node ids in {nodes_csv}: {missing[:10]}{'...' if len(missing)>10 else ''}")
+    coords_list = [coords[i] for i in range(n+1)]  # 0..n
 
-    coords_list = [coords[i] for i in range(n + 1)]  # 0..n
-
-    # ---- demands (lambda) ----
-    lam = [0.0] * (n + 1)
-    with open(demand_csv, "r", encoding="utf-8-sig", newline="") as f:
+    lam = [0.0]*(n+1)
+    with open(demand_csv, "r", encoding="utf-8") as f:
         for row in csv.reader(f):
             if not row:
                 continue
-            c0 = row[0].strip()
-            if not c0 or c0.startswith("#"):
+            key = row[0].strip().lower()
+            if key.startswith("#") or key in ("node_id", "id"):
                 continue
-            c0l = c0.lower()
-            # skip headers like: id,lambda  / id,demand / node_id,lambda
-            if c0l in ("id", "node_id"):
+            try:
+                idx = int(row[0]); l = float(row[1])
+            except Exception:
                 continue
-            if not _is_int_token(c0):
-                continue
-            if len(row) < 2:
-                continue
-            idx = int(c0)
-            l = float(row[1])
-            if 0 <= idx <= n:
-                lam[idx] = l
-
+            lam[idx] = l
     lam[0] = 0.0
     return coords_list, lam
+
+
 def build_distance(coords: List[Tuple[float,float]]):
     n = len(coords)
     D = [[0.0]*n for _ in range(n)]
@@ -150,7 +112,7 @@ def build_distance(coords: List[Tuple[float,float]]):
 
 coords, lam_vec = read_nodes_and_demands(NODES_CSV, DEMAND_CSV)
 D = build_distance(coords)
-demand_det = lam_vec[:]
+demand_det = lam_vec[:]  # 期望需求；已确保 demand_det[0]=0
 
 # === 可行性自检 + K 下限提示/自动修正（放在第一次 HGS 调用之前）===
 lam = np.asarray(demand_det, dtype=float)  # 0号是仓库
@@ -297,6 +259,22 @@ print(">>> 方案路线：", best_routes)
 
 
 
+
+
+# ====== Variability across scenarios (std. deviation) ======
+try:
+    # small-sample variability
+    mean_s, samples_s = SAA.expected_cost_SAA(best_routes, coords, float(Q), scenarios_small, return_samples=True)
+    std_s = float(np.std(np.array(samples_s, dtype=float), ddof=1)) if len(samples_s) > 1 else 0.0
+    print(f"\n[Small-SAA] mean={mean_s:.4f}, std={std_s:.4f} (S={len(samples_s)}, seed={SEED_SMALL})")
+
+    # big-sample variability (if enabled)
+    if use_big and scenarios_big is not None and len(scenarios_big) > 0:
+        mean_b, samples_b = SAA.expected_cost_SAA(best_routes, coords, float(Q), scenarios_big, return_samples=True)
+        std_b = float(np.std(np.array(samples_b, dtype=float), ddof=1)) if len(samples_b) > 1 else 0.0
+        print(f"[Big-SAA]   mean={mean_b:.4f}, std={std_b:.4f} (S={len(samples_b)}, seed={SEED_BIG})")
+except Exception as _e:
+    print(f"[warn] 计算跨场景波动(std)失败: {_e}")
 
 # —— 全局一点点美化（不依赖 seaborn）——
 from typing import Iterable, Tuple, Optional, Sequence, List

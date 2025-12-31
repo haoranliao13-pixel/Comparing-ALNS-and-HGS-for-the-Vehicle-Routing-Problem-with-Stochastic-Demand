@@ -13,13 +13,20 @@ else:
     from .solver import ALNSSolveConfig, solve_vrpsd_with_alns
     from .visualize import plot_routes, plot_convergence
 
+try:
+    # SAA scenario generator + per-scenario recourse simulation
+    from evaluator import ScenarioManager, recourse_cost_one_scenario, normalize_routes, trips_one_scenario
+except ImportError:
+    from .evaluator import ScenarioManager, recourse_cost_one_scenario, normalize_routes, trips_one_scenario
+
+
 # ---------------- Parameters to tune ----------------
-NODES_CSV = r"C:\Users\haora\PyCharmMiscProject\datasets\nodes_400_centered.csv"
-DEMAND_CSV = r"C:\Users\haora\PyCharmMiscProject\datasets\demand_400_centered.csv"
+NODES_CSV  = r"C:\Users\haora\PyCharmMiscProject\CVRPLib\csv\nodes_X-n303-k21.csv"
+DEMAND_CSV = r"C:\Users\haora\PyCharmMiscProject\CVRPLib\csv\demand_X-n303-k21.csv"
 
 
-Q = 60.0
-K = 35              # ← 与你脚本一致：不要硬约束车数量（非常关键）
+Q = 220.0
+K = 90              # ← 与你脚本一致：不要硬约束车数量（非常关键）
 
 CONFIG = ALNSSolveConfig(
     seed=0,                       # 你的脚本默认 seed=0
@@ -57,10 +64,28 @@ def main():
     # -------- 求解 --------
     res = solve_vrpsd_with_alns(inst, CONFIG)
 
+    # -------- Recompute SAA mean/std on the SAME scenario sets used by the solver --------
+    dist = inst.distance_matrix()
+    routes_norm, _ = normalize_routes(res.routes)
+
+    scen_small = ScenarioManager(inst.lam, seed=12345).sample(CONFIG.small_samples)
+    scen_large = ScenarioManager(inst.lam, seed=54321).sample(CONFIG.large_samples)
+
+    small_costs = np.array([recourse_cost_one_scenario(inst, routes_norm, d, dist) for d in scen_small], dtype=float)
+    large_costs = np.array([recourse_cost_one_scenario(inst, routes_norm, d, dist) for d in scen_large], dtype=float)
+
+    small_mean = float(small_costs.mean()); small_std = float(small_costs.std(ddof=1))
+    large_mean = float(large_costs.mean()); large_std = float(large_costs.std(ddof=1))
+
+
     # -------- 打印结果 --------
-    print(f"Best expected cost (small sample): {res.small_cost:.3f}")
-    print(f"Best expected cost (large sample):  {res.large_cost:.3f}")
+    print(f"[Small-SAA] mean={small_mean:.4f}, std={small_std:.4f} (S={CONFIG.small_samples}, seed=12345)")
+    print(f"[Big-SAA]   mean={large_mean:.4f}, std={large_std:.4f} (S={CONFIG.large_samples}, seed=54321)")
     print(f"Routes: {res.routes}")
+    print(f"Number of routes: {len(res.routes)}")
+    # Actual depot departures (planned routes + restocks) for ONE representative scenario
+    trips0 = trips_one_scenario(inst, res.routes, scen_large[0])
+    print(f"Trips (scenario 0 of big-SAA): {trips0}")
 
     # -------- 画图 + 保存 --------
     _ = plot_routes(inst, res.routes, fname=os.path.join(PLOT_DIR, "final_routes.png"))

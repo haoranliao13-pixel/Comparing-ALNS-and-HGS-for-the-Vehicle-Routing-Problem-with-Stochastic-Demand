@@ -3,8 +3,6 @@ from __future__ import annotations
 import os
 import re
 import time
-import traceback
-from dataclasses import asdict
 from typing import Dict, List, Tuple, Optional
 import numpy as np
 import pandas as pd
@@ -32,10 +30,10 @@ TIME_LIMIT_HGS = 20.0
 
 # ALNS config (keep same for all instances/Q for fair comparison)
 ALNS_SEED = 0
-ALNS_ITERS = 2000000          
+ALNS_ITERS = 2000000
 ALNS_NUM_STARTS = 1
-ALNS_SMALL_SAMPLES = 80       
-ALNS_LARGE_SAMPLES = 300      
+ALNS_SMALL_SAMPLES = 80
+ALNS_LARGE_SAMPLES = 300
 
 # HGS config
 HGS_SEED = 0
@@ -48,7 +46,7 @@ BIG_SEED = 54321
 # How to pick baseline Q0 from lambdas:
 #   Q0_raw = alpha * (sum lambda) / K
 Q_ALPHA = 1.25                # safety factor: 1.15~1.35 are common
-Q_ROUND_TO = 1               
+Q_ROUND_TO = 1
 
 # Example with percents: [-20%, -10%, 0, +10%, +20%]
 Q_DELTAS = [-0.20, -0.10, 0.0, +0.10, +0.20]
@@ -162,7 +160,6 @@ def make_Q_levels(q0: float) -> List[float]:
         q = round_to(q0 * (1.0 + float(d)), Q_ROUND_TO)
         if q > 0:
             qs.append(float(q))
-    # unique + sorted
     qs = sorted(set(qs))
     return qs
 
@@ -182,6 +179,21 @@ def saa_mean_std(instance, routes, S: int, seed: int, normalize_routes_fn, Scena
     mean = float(arr.mean()) if arr.size else float("nan")
     std = float(arr.std(ddof=1)) if arr.size > 1 else 0.0
     return mean, std
+
+
+def saa_mean_trips(instance, routes, S: int, seed: int, normalize_routes_fn, ScenarioManagerCls, trips_one_scenario_fn) -> float:
+    scen_mgr = ScenarioManagerCls(instance.lam, seed=seed)
+    scenarios = scen_mgr.sample(int(S))
+
+    routes_norm, _ = normalize_routes_fn(routes)
+    dist = instance.distance_matrix()
+
+    trips = []
+    for dem in scenarios:
+        trips.append(float(trips_one_scenario_fn(instance, routes_norm, dem, dist)))
+
+    arr = np.asarray(trips, dtype=float)
+    return float(arr.mean()) if arr.size else float("nan")
 
 
 def safe_len_routes(routes) -> int:
@@ -215,6 +227,7 @@ def main() -> None:
             from alns2.solver import ALNSSolveConfig, solve_vrpsd_with_alns
             from alns2.evaluator import ScenarioManager as ALNSScenarioManager
             from alns2.evaluator import recourse_cost_one_scenario as alns_recourse_cost
+            from alns2.evaluator import trips_one_scenario as alns_trips_one_scenario
         except Exception as e:
             raise RuntimeError(
                 "Failed to import ALNS modules as package 'alns2.*'.\n"
@@ -249,13 +262,11 @@ def main() -> None:
             )
 
         # For evaluation we reuse ALNS evaluator for consistency
-        # (so mean/std are computed in exactly the same way for both algorithms).
         if not RUN_ALNS:
-            # if user disables ALNS but still wants evaluation functions,
-            # we still import alns2.evaluator + normalize_routes for consistent evaluation.
             from alns2.problem import normalize_routes as alns_normalize_routes
             from alns2.evaluator import ScenarioManager as ALNSScenarioManager
             from alns2.evaluator import recourse_cost_one_scenario as alns_recourse_cost
+            from alns2.evaluator import trips_one_scenario as alns_trips_one_scenario
 
     rows: List[Dict] = []
 
@@ -299,9 +310,19 @@ def main() -> None:
                         recourse_cost_fn=alns_recourse_cost,
                     )
 
-                    rnum = safe_len_routes(alns_res.routes)
+                    # routes := realized trips (planned routes + restocks) under DTD, mean over BIG SAA
+                    trips_mean = saa_mean_trips(
+                        inst,
+                        alns_res.routes,
+                        S=BIG_S,
+                        seed=BIG_SEED,
+                        normalize_routes_fn=alns_normalize_routes,
+                        ScenarioManagerCls=ALNSScenarioManager,
+                        trips_one_scenario_fn=alns_trips_one_scenario,
+                    )
+                    rnum = int(round(trips_mean))
 
-                    row = {
+                    rows.append({
                         "instance": inst_name,
                         "algorithm": "ALNS",
                         "Q": float(Q),
@@ -311,8 +332,7 @@ def main() -> None:
                         "big_saa_std": float(std_big),
                         "routes": int(rnum),
                         "status": "ok",
-                    }
-                    rows.append(row)
+                    })
 
                     print(f"  ALNS | Q={Q:8.2f} | time={t_alns:7.2f}s | routes={rnum:3d} | mean={mean_big:10.4f} | std={std_big:9.4f}")
 
@@ -329,7 +349,7 @@ def main() -> None:
                         "status": f"error: {e}",
                     })
                     print(f"  [ALNS ERROR] Q={Q} -> {e}")
-                    
+
             # ---------------- HGS ----------------
             if RUN_HGS:
                 try:
@@ -354,9 +374,19 @@ def main() -> None:
                         recourse_cost_fn=alns_recourse_cost,
                     )
 
-                    rnum = safe_len_routes(hgs_res.routes)
+                    # CHANGE: make HGS "routes" use the same realized-trips definition as ALNS
+                    trips_mean = saa_mean_trips(
+                        inst_h,
+                        hgs_res.routes,
+                        S=BIG_S,
+                        seed=BIG_SEED,
+                        normalize_routes_fn=alns_normalize_routes,
+                        ScenarioManagerCls=ALNSScenarioManager,
+                        trips_one_scenario_fn=alns_trips_one_scenario,
+                    )
+                    rnum = int(round(trips_mean))
 
-                    row = {
+                    rows.append({
                         "instance": inst_name,
                         "algorithm": "HGS",
                         "Q": float(Q),
@@ -366,8 +396,7 @@ def main() -> None:
                         "big_saa_std": float(std_big),
                         "routes": int(rnum),
                         "status": "ok",
-                    }
-                    rows.append(row)
+                    })
 
                     print(f"  HGS  | Q={Q:8.2f} | time={t_hgs:7.2f}s | routes={rnum:3d} | mean={mean_big:10.4f} | std={std_big:9.4f}")
 
@@ -384,13 +413,10 @@ def main() -> None:
                         "status": f"error: {e}",
                     })
                     print(f"  [HGS ERROR] Q={Q} -> {e}")
-                    # traceback.print_exc()
 
         print()
 
     df = pd.DataFrame(rows)
-
-    # Nice ordering
     cols = ["instance", "algorithm", "Q", "K", "time_sec", "big_saa_mean", "big_saa_std", "routes", "status"]
     df = df[cols].sort_values(["instance", "algorithm", "Q"]).reset_index(drop=True)
 
@@ -405,3 +431,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+

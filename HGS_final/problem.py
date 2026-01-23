@@ -13,14 +13,7 @@ Solution = List[Route]
 
 @dataclass
 class VRPSDInstance:
-    """
-    Minimal VRPSD instance for HGS side.
-
-    coords : (n,2) array of node coordinates (0 = depot)
-    lam    : (n,)  array of expected demands (lam[0] must be 0)
-    Q      : vehicle capacity
-    K      : optional max number of vehicles
-    """
+   
     coords: np.ndarray
     lam: np.ndarray
     Q: float
@@ -41,7 +34,7 @@ class VRPSDInstance:
             self.lam[0] = 0.0
 
     def distance_matrix(self) -> np.ndarray:
-        """Lazy Euclidean distance matrix."""
+        
         if self._D is None:
             diff = self.coords[:, None, :] - self.coords[None, :, :]
             self._D = np.hypot(diff[..., 0], diff[..., 1])
@@ -49,7 +42,7 @@ class VRPSDInstance:
 
 
 def _pick_col(df: pd.DataFrame, *cands: str) -> Optional[str]:
-    """Pick first existing column among candidates (case-insensitive)."""
+  
     m = {c.lower().strip(): c for c in df.columns}
     for c in cands:
         if c in m:
@@ -63,21 +56,7 @@ def build_instance_from_csv(
     Q: float,
     K: Optional[int] = None,
 ) -> VRPSDInstance:
-    """
-    CVRPLib-style reader.
-
-    nodes_csv:
-      - must contain x/y columns (or xcoord/ycoord)
-      - id is optional; if missing, it is assumed 0..n-1
-    demand_csv:
-      - must contain a demand column among: lambda/lam/demand/mu/mean/dem
-      - id is optional; if missing, it is assumed 0..n-1
-
-    Requirements:
-      - depot id must be 0
-      - lam[0] is forced to 0
-      - missing lambda for non-depot nodes will be warned and filled with 0
-    """
+    
     nodes = pd.read_csv(nodes_csv)
     dem = pd.read_csv(demand_csv)
 
@@ -96,7 +75,7 @@ def build_instance_from_csv(
             "[lambda, lam, demand, mu, mean, dem]."
         )
 
-    # If no id, assume 0..n-1
+   
     if nid is None:
         nodes = nodes.assign(id=range(len(nodes)))
         nid = "id"
@@ -150,3 +129,4 @@ def solution_cost_deterministic(
             prev = c
         tot += float(dist_matrix[prev, 0])
     return float(tot)
+

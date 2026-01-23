@@ -31,12 +31,7 @@ OUT_DIR = "outputs"           # relative to HGS_final/ by default
 DISABLE_PLOTS = False         # True -> do not save plots
 SAVE_NATIVE_CONV = False      # True -> also save PyVRP native objective plot
 SAVE_JSON_SUMMARY = True      # True -> write hgs_summary.json
-# =============================================================================
 
-
-# -----------------------------------------------------------------------------
-# Make sure imports resolve to *this* folder first (avoid alns2/problem.py clash)
-# -----------------------------------------------------------------------------
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, THIS_DIR)
 
@@ -50,9 +45,7 @@ from visualize import (  # noqa: E402
 )
 
 
-# -----------------------------------------------------------------------------
-# Helpers
-# -----------------------------------------------------------------------------
+
 def print_parameter_console() -> None:
     """Print parameter summary at the very top (English)."""
     print("===== Parameter Console (edit in run.py) =====")
@@ -124,9 +117,6 @@ def ensure_out_dir(base_out_dir: str, instance_name: str) -> str:
     return out_dir
 
 
-# -----------------------------------------------------------------------------
-# Core routine
-# -----------------------------------------------------------------------------
 def run_one_instance(instance_name: str) -> None:
     project_root = find_project_root(THIS_DIR)
     nodes_csv, demand_csv = resolve_csv_paths(project_root, instance_name)
@@ -247,3 +237,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

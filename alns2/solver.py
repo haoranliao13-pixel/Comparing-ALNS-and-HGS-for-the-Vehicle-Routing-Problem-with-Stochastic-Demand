@@ -24,9 +24,6 @@ except ImportError:
     from evaluator import ScenarioManager, SAACache, evaluate_routes
 
 
-# -----------------------------
-# State (ALNS 7.0: objective() must exist)
-# -----------------------------
 class VRPSDState(State):
     def __init__(self, routes: 'Solution', objective_fn):
         self.routes = [list(r) for r in routes]
@@ -46,9 +43,6 @@ class VRPSDState(State):
         return None
 
 
-# -----------------------------
-# Objective (closure, keeps EMA & history; always returns finite float)
-# -----------------------------
 def make_objective(instance, scen_small, cache, smooth_alpha: float):
     history: List[float] = []
     ema = {"val": None}
@@ -74,11 +68,6 @@ def make_objective(instance, scen_small, cache, smooth_alpha: float):
     return safe_objective, history
 
 
-# -----------------------------
-# Operators (ALNS 7.0 signatures)
-#   destroy: op(state, rng, **kw) -> state   (must tag _removed)
-#   repair:  op(state, rng, **kw) -> state   (must read state._removed)
-# -----------------------------
 def build_operators(alns: ALNS, distances: np.ndarray, py_rng: random.Random,
                     instance: 'VRPSDInstance', objective_fn):
     try:
@@ -182,9 +171,6 @@ def build_operators(alns: ALNS, distances: np.ndarray, py_rng: random.Random,
     alns.add_repair_operator(repair_regret3)
 
 
-# -----------------------------
-# Config & result
-# -----------------------------
 @dataclass
 class ALNSSolveConfig:
     seed: int = 42
@@ -210,9 +196,8 @@ class SolveResult:
     history: List[float]
 
 
-# -----------------------------
+
 # Stop conditions
-# -----------------------------
 class WallTimeStop:
     def __init__(self, limit_sec: float):
         self.limit = float(limit_sec)
@@ -236,9 +221,8 @@ def _build_selector(cfg: ALNSSolveConfig, np_rng: np.random.Generator):
         return RandomSelect(np_rng)
 
 
-# -----------------------------
+
 # Solve
-# -----------------------------
 def solve_vrpsd_with_alns(instance: 'VRPSDInstance', config: 'ALNSSolveConfig') -> 'SolveResult':
     # Two RNGs: numpy for ALNS; python for our custom ops
     py_rng = random.Random(config.seed)
@@ -293,8 +277,6 @@ def solve_vrpsd_with_alns(instance: 'VRPSDInstance', config: 'ALNSSolveConfig') 
             stop = OrStop(*stops)
 
         select = _build_selector(config, np_rng)
-
-        # ALNS 7.0 signature
         result: Result = alns.iterate(state, select, sa, stop)
 
         # evaluate best

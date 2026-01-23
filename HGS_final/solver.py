@@ -10,9 +10,7 @@ from problem import VRPSDInstance, Solution
 
 
 class HGSPyVRPResult:
-    """
-    Thin wrapper around PyVRP's result we return to the runner script.
-    """
+   
     def __init__(self, routes: Solution, cost: float, raw_result) -> None:
         self.routes = routes
         self.cost = float(cost)
@@ -25,13 +23,7 @@ def solve_vrpsd_with_hgs(
     seed: int = 0,
     verbose: bool = False,
 ) -> HGSPyVRPResult:
-    """
-    Solve a deterministic CVRP approximation of VRPSD using PyVRP / HGS.
-
-    - Distance matrix comes from instance (Euclidean).
-    - Demands are the expected demands lam, rounded to integers.
-    - Stochasticity is handled separately in evaluator (SAA).
-    """
+   
     dist = instance.distance_matrix()
     n, m = dist.shape
     if n != m:
@@ -47,7 +39,7 @@ def solve_vrpsd_with_hgs(
 
     model = Model()
 
-    # Single depot (coordinates here do not affect objective because we explicitly add edge distances)
+    # Single depot
     model.add_depot(x=0.0, y=0.0)
 
     # Vehicle type: capacity and maximum available vehicles
@@ -80,7 +72,6 @@ def solve_vrpsd_with_hgs(
         display=bool(verbose),
     )
 
-    # Extract routes as list of customer id lists
     best = res.best
     routes: List[List[int]] = []
     for route in best.routes():
@@ -90,3 +81,4 @@ def solve_vrpsd_with_hgs(
 
     cost = float(res.cost())
     return HGSPyVRPResult(routes=routes, cost=cost, raw_result=res)
+

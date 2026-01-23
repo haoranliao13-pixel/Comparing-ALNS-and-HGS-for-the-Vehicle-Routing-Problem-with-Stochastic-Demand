@@ -14,11 +14,7 @@ def plot_routes(
     out_path: str,
     title: str = "HGS routes",
 ) -> None:
-    """
-    Save a route plot to out_path.
-
-    Style intentionally close to ALNS visualize: scatter nodes, polyline per route.
-    """
+    
     out_dir = os.path.dirname(out_path)
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
@@ -47,14 +43,7 @@ def plot_convergence_alns_style(
     title: str = "Objective (HGS deterministic) over iterations",
     ylabel: str = "Objective (total distance)",
 ) -> None:
-    """
-    Save an ALNS-like convergence curve (single line over iterations).
-
-    We extract the 'Best' curve from pyvrp.plotting.plot_objectives and re-plot it
-    as a single-line chart.
-
-    NOTE: metric is PyVRP deterministic objective, NOT SAA expected cost.
-    """
+    
     out_dir = os.path.dirname(out_path)
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
@@ -100,10 +89,7 @@ def plot_convergence_pyvrp_native(
     out_path: str,
     title: str = "HGS (PyVRP) objectives",
 ) -> None:
-    """
-    Optional: Save the native PyVRP convergence plot (current/candidate/best).
-    Kept for debugging, but not used if you want ALNS-like format.
-    """
+   
     out_dir = os.path.dirname(out_path)
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
@@ -122,3 +108,4 @@ def plot_convergence_pyvrp_native(
 
     except Exception as e:
         print("[WARN] plot_convergence_pyvrp_native failed:", e)
+

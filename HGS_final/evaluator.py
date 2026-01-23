@@ -9,12 +9,7 @@ from problem import VRPSDInstance, Solution
 
 @dataclass
 class ScenarioManager:
-    """
-    Generate i.i.d. demand scenarios.
-
-    demands are sampled as:
-      D_i ~ Poisson(lam_i) for i=1..n-1, and D_0 = 0 (depot)
-    """
+    
     lam: np.ndarray
     seed: int
 
@@ -43,22 +38,7 @@ def recourse_cost_one_scenario(
     demands_one: np.ndarray,
     dist_matrix: Optional[np.ndarray] = None,
 ) -> float:
-    """
-    Compute travel distance under ONE demand scenario.
-
-    Policy (same as your current HGS/ALNS implementation):
-    - Follow the planned customer visiting order.
-    - Travel prev -> c.
-    - If load + demand(c) > Q, then perform an emergency replenishment:
-        add c -> depot -> c
-      and reset load to 0, then serve c.
-    - At the end of each route, return to depot.
-
-    NOTE:
-    This is a "reactive" restock (discover after arriving at c).
-    If later you want the more standard "preemptive" policy (prev->depot->c),
-    you only need to change this function.
-    """
+    
     if dist_matrix is None:
         dist_matrix = instance.distance_matrix()
 
@@ -91,11 +71,7 @@ def saa_mean_var_std(
     routes: Solution,
     scenarios: np.ndarray,
 ) -> Tuple[float, float, float]:
-    """
-    Evaluate routes under SAA scenarios.
-
-    Returns (mean, var, std) of recourse cost across scenarios.
-    """
+    
     scenarios = np.asarray(scenarios)
     if scenarios.ndim != 2:
         raise ValueError("scenarios must be a 2D array of shape (S, n).")
@@ -111,3 +87,4 @@ def saa_mean_var_std(
     var = float(costs.var(ddof=0))
     std = float(costs.std(ddof=0))
     return mean, var, std
+

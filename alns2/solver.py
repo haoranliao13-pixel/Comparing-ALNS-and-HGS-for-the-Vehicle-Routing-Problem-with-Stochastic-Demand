@@ -174,10 +174,10 @@ def build_operators(alns: ALNS, distances: np.ndarray, py_rng: random.Random,
 @dataclass
 class ALNSSolveConfig:
     seed: int = 42
-    time_limit_sec: float = None           # wall time limit (seconds); None to disable
+    time_limit_sec: float = None           
     iters: int = 2000
     start_temp: float = 200.0
-    cool_rate: float = 0.9995              # exponential cooling step in (0,1)
+    cool_rate: float = 0.9995              
     end_temp: float = 1e-3
     small_samples: int = 96
     large_samples: int = 2048

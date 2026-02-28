@@ -47,7 +47,7 @@ from visualize import (  # noqa: E402
 
 
 def print_parameter_console() -> None:
-    """Print parameter summary at the very top (English)."""
+   
     print("===== Parameter Console (edit in run.py) =====")
     print(f"INSTANCES           = {INSTANCES}")
     print(f"NODES_CSV           = {NODES_CSV}")
@@ -90,7 +90,7 @@ def find_project_root(start_dir: str) -> str:
 def resolve_csv_paths(project_root: str, instance_name: str) -> tuple[str, str]:
     
     if (NODES_CSV is None) ^ (DEMAND_CSV is None):
-        raise ValueError("You must set BOTH NODES_CSV and DEMAND_CSV, or set BOTH to None.")
+        raise ValueError("csv")
 
     if NODES_CSV is not None and DEMAND_CSV is not None:
         return NODES_CSV, DEMAND_CSV
@@ -231,6 +231,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
 
 

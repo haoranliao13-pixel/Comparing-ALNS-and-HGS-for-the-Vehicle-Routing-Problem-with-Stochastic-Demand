@@ -37,7 +37,7 @@ def plot_routes(
     plt.close(fig)
 
 
-def plot_convergence_alns_style(
+def plot_convergence_pyvrp_native(
     pyvrp_result,
     out_path: str,
     title: str = "Objective (HGS deterministic) over iterations",
@@ -108,4 +108,5 @@ def plot_convergence_pyvrp_native(
 
     except Exception as e:
         print("[WARN] plot_convergence_pyvrp_native failed:", e)
+
 

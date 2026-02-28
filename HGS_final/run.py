@@ -75,10 +75,7 @@ def print_parameter_console() -> None:
 
 
 def find_project_root(start_dir: str) -> str:
-    """
-    Walk up to find a directory that contains 'CVRPLib'.
-    This makes paths robust across machines / different folder locations.
-    """
+    
     cur = os.path.abspath(start_dir)
     for _ in range(10):
         if os.path.isdir(os.path.join(cur, "CVRPLib")):
@@ -234,5 +231,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
 

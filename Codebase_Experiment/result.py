@@ -54,7 +54,6 @@ Q_DELTAS = [-0.20, -0.10, 0.0, +0.10, +0.20]
 # Optional: limit how many instances to run (None = all)
 MAX_INSTANCES: Optional[int] = None
 
-# =============================================================================
 
 
 def find_project_root(start_dir: str) -> str:
@@ -70,10 +69,7 @@ def find_project_root(start_dir: str) -> str:
 
 
 def list_instances(csv_dir: str) -> List[str]:
-    """
-    Find all instance names that have both nodes_*.csv and demand_*.csv.
-    Returns: ["X-n101-k25", ...]
-    """
+   
     inst = []
     for fn in os.listdir(csv_dir):
         if not fn.startswith("nodes_") or not fn.endswith(".csv"):
@@ -102,10 +98,7 @@ def _pick_col(df: pd.DataFrame, *cands: str) -> Optional[str]:
 
 
 def read_lambdas_from_demand_csv(demand_csv: str) -> np.ndarray:
-    """
-    Robustly read lambda vector aligned by id, requiring depot id=0.
-    Returns lam array where lam[0]=0.
-    """
+    
     dem = pd.read_csv(demand_csv)
     did = _pick_col(dem, "id", "node", "index")
     lmd = _pick_col(dem, "lambda", "lam", "demand", "mu", "mean", "dem")
@@ -219,7 +212,6 @@ def main() -> None:
     print(f"Q deltas     : {Q_DELTAS}")
     print("=====================================================================\n")
 
-    # ---- import ALNS modules (prefer package import alns2.*) ----
     if RUN_ALNS:
         try:
             from alns2.problem import build_instance_from_csv as build_alns_instance
@@ -431,5 +423,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
 

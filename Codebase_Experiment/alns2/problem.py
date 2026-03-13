@@ -5,8 +5,8 @@ import numpy as np
 
 @dataclass
 class VRPSDInstance:
-    coords: np.ndarray          # shape (n, 2), node 0 is depot
-    lam: np.ndarray             # shape (n,), expected demand; lam[0] = 0
+    coords: np.ndarray          
+    lam: np.ndarray             
     Q: float
     K: Optional[int] = None
     _D: Optional[np.ndarray] = None  # lazy cache for distance matrix
@@ -40,13 +40,7 @@ def _pick(df, *cands):
 
 
 def build_instance_from_csv(nodes_csv: str, demand_csv: str, Q: float, K: Optional[int] = None) -> VRPSDInstance:
-    """
-    Robust reader:
-    - nodes: expects id,x,y (accepts node/index as id alias; generates sequential id if absent)
-    - demand: expects id,lambda (accepts lam/demand/mu/mean alias; generates sequential id if absent)
-    - trims spaces/BOM, coerces lambda to numeric; missing/NaN non-depot lambda -> warn and fill 0.0
-    - requires depot id=0 as first row after sorting
-    """
+    
     import pandas as pd
 
     nodes = pd.read_csv(nodes_csv)
@@ -71,22 +65,22 @@ def build_instance_from_csv(nodes_csv: str, demand_csv: str, Q: float, K: Option
     nodes = nodes.rename(columns={nid:"id", xid:"x", yid:"y"})
     dem   = dem.rename(columns={did:"id", lmd:"lambda"})
 
-    # Clean ids
+ 
     nodes["id"] = nodes["id"].astype(str).str.strip().str.replace("\ufeff","", regex=False).astype(int)
     dem["id"]   = dem["id"].astype(str).str.strip().str.replace("\ufeff","", regex=False).astype(int)
 
-    # Drop duplicate demand ids (keep first)
+
     dem = dem[~dem["id"].duplicated(keep="first")]
 
-    # Coerce lambda
+   
     dem["lambda"] = pd.to_numeric(dem["lambda"].astype(str).str.strip(), errors="coerce")
 
     merged = nodes.merge(dem, on="id", how="left", sort=True, validate="one_to_one")
 
-    # Depot fill
+   
     merged.loc[merged["id"] == 0, "lambda"] = merged.loc[merged["id"] == 0, "lambda"].fillna(0.0)
 
-    # Others: warn and fill 0
+    
     bad = merged["lambda"].isna() & (merged["id"] != 0)
     if bad.any():
         miss_ids = merged.loc[bad, "id"].astype(int).tolist()
@@ -95,7 +89,7 @@ def build_instance_from_csv(nodes_csv: str, demand_csv: str, Q: float, K: Option
 
     merged = merged.sort_values("id").reset_index(drop=True)
 
-    # enforce depot id 0 at top
+   
     if merged.loc[0, "id"] != 0:
         raise ValueError("Require depot id=0 and sorted ascending by id.")
 
@@ -192,17 +186,17 @@ def limit_routes_to_K(instance: VRPSDInstance, routes: Solution, K: Optional[int
                     continue
                 di, Ai, Bi, mode = _merge_two_routes_cost(D, routes[i], routes[j])
                 candidates.append((di, i, j, Ai, Bi, mode))
-        # pick top few by geometric saving
+        
         candidates.sort(key=lambda x: x[0])
         shortlist = candidates[:min(10, len(candidates))]
-        # Try to refine using small SAA, if available
+        
         try:
             try:
                 from .evaluator import expected_cost_SAA, ScenarioManager
             except ImportError:
                 from evaluator import expected_cost_SAA, ScenarioManager
             scen = ScenarioManager(instance.lam, seed=987654321)
-            # base cost
+            
             base_cost = expected_cost_SAA(instance, routes, scen)
             best = None
             best_delta = float("inf")
@@ -220,13 +214,13 @@ def limit_routes_to_K(instance: VRPSDInstance, routes: Solution, K: Optional[int
             if best is not None:
                 i, j, Ai, Bi = best
             else:
-                # fallback to geometric best
+                
                 _, i, j, Ai, Bi, _ = shortlist[0]
         except Exception:
-            # evaluator not available; use geometric
+            
             _, i, j, Ai, Bi, _ = shortlist[0]
         merged = Ai + Bi
-        # rebuild new list
+        
         new_routes = []
         for t, r in enumerate(routes):
             if t == i or t == j: continue

@@ -138,7 +138,7 @@ def pick_baseline_Q(lam: np.ndarray, K: int) -> float:
     q0_raw = Q_ALPHA * (total / max(1, int(K)))
     q0 = round_to(q0_raw, Q_ROUND_TO)
 
-    # sanity floor (avoid absurdly small capacity)
+    
     lam_max = float(np.max(lam[1:])) if lam.size > 1 else 0.0
     q0 = max(q0, round_to(lam_max, Q_ROUND_TO))
 
@@ -304,7 +304,7 @@ def main() -> None:
                         recourse_cost_fn=alns_recourse_cost,
                     )
 
-                    # routes := realized trips (planned routes + restocks) under DTD, mean over BIG SAA
+                    
                     trips_mean = saa_mean_trips(
                         inst,
                         alns_res.routes,
@@ -425,6 +425,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
 
 

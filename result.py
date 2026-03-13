@@ -45,7 +45,7 @@ BIG_SEED = 54321
 
 
 #   Q0_raw = alpha * (sum lambda) / K
-Q_ALPHA = 1.25                # safety factor: 1.15~1.35 are common
+Q_ALPHA = 1.25                
 Q_ROUND_TO = 1
 
 # Example with percents: [-20%, -10%, 0, +10%, +20%]
@@ -425,6 +425,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
 
 

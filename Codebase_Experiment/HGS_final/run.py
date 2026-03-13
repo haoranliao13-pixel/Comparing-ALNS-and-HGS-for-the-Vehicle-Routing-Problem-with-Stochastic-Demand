@@ -5,9 +5,9 @@ import sys
 import time
 import json
 
-INSTANCES = ["X-n101-k25"]     # e.g., ["X-n101-k25", "X-n219-k73"]
+INSTANCES = ["X-n101-k25"]    
 
-# Override with explicit CSV paths (set BOTH, or keep BOTH as None)
+
 NODES_CSV = None              # e.g., r"C:\...\CVRPLib\csv\nodes_X-n101-k25.csv"
 DEMAND_CSV = None             # e.g., r"C:\...\CVRPLib\csv\demand_X-n101-k25.csv"
 
@@ -47,7 +47,7 @@ from visualize import (  # noqa: E402
 
 
 def print_parameter_console() -> None:
-    """Print parameter summary at the very top (English)."""
+    
     print("===== Parameter Console (edit in run.py) =====")
     print(f"INSTANCES           = {INSTANCES}")
     print(f"NODES_CSV           = {NODES_CSV}")
@@ -75,10 +75,7 @@ def print_parameter_console() -> None:
 
 
 def find_project_root(start_dir: str) -> str:
-    """
-    Walk up to find a directory that contains 'CVRPLib'.
-    This makes paths robust across machines / different folder locations.
-    """
+    
     cur = os.path.abspath(start_dir)
     for _ in range(10):
         if os.path.isdir(os.path.join(cur, "CVRPLib")):
@@ -91,10 +88,7 @@ def find_project_root(start_dir: str) -> str:
 
 
 def resolve_csv_paths(project_root: str, instance_name: str) -> tuple[str, str]:
-    """
-    If NODES_CSV/DEMAND_CSV are provided, use them.
-    Else use CVRPLib/csv/nodes_<instance>.csv and demand_<instance>.csv.
-    """
+    
     if (NODES_CSV is None) ^ (DEMAND_CSV is None):
         raise ValueError("You must set BOTH NODES_CSV and DEMAND_CSV, or set BOTH to None.")
 
@@ -108,7 +102,7 @@ def resolve_csv_paths(project_root: str, instance_name: str) -> tuple[str, str]:
 
 
 def ensure_out_dir(base_out_dir: str, instance_name: str) -> str:
-    """Create an instance-specific output folder to avoid overwriting files."""
+    
     out_dir = base_out_dir
     if not os.path.isabs(out_dir):
         out_dir = os.path.join(THIS_DIR, out_dir)
@@ -237,4 +231,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 

@@ -15,7 +15,7 @@ try:
 except Exception:
     Or = None  # fallback
 
-# Project imports (package/flat both supported)
+
 try:
     from .problem import VRPSDInstance, Solution, greedy_split_by_capacity, limit_routes_to_K
     from .evaluator import ScenarioManager, SAACache, evaluate_routes

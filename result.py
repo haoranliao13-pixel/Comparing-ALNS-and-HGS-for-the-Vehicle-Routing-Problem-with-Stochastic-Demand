@@ -28,22 +28,22 @@ RUN_HGS = True
 TIME_LIMIT_ALNS = 20.0
 TIME_LIMIT_HGS = 20.0
 
-# ALNS config (keep same for all instances/Q for fair comparison)
+
 ALNS_SEED = 0
 ALNS_ITERS = 2000000
 ALNS_NUM_STARTS = 1
 ALNS_SMALL_SAMPLES = 80
 ALNS_LARGE_SAMPLES = 300
 
-# HGS config
+
 HGS_SEED = 0
 HGS_VERBOSE = False
 
-# Evaluation (Big SAA you want to report)
+
 BIG_S = 300
 BIG_SEED = 54321
 
-# How to pick baseline Q0 from lambdas:
+
 #   Q0_raw = alpha * (sum lambda) / K
 Q_ALPHA = 1.25                # safety factor: 1.15~1.35 are common
 Q_ROUND_TO = 1
@@ -51,10 +51,10 @@ Q_ROUND_TO = 1
 # Example with percents: [-20%, -10%, 0, +10%, +20%]
 Q_DELTAS = [-0.20, -0.10, 0.0, +0.10, +0.20]
 
-# Optional: limit how many instances to run (None = all)
+
 MAX_INSTANCES: Optional[int] = None
 
-# =============================================================================
+
 
 
 def find_project_root(start_dir: str) -> str:
@@ -70,10 +70,7 @@ def find_project_root(start_dir: str) -> str:
 
 
 def list_instances(csv_dir: str) -> List[str]:
-    """
-    Find all instance names that have both nodes_*.csv and demand_*.csv.
-    Returns: ["X-n101-k25", ...]
-    """
+    
     inst = []
     for fn in os.listdir(csv_dir):
         if not fn.startswith("nodes_") or not fn.endswith(".csv"):
@@ -102,10 +99,7 @@ def _pick_col(df: pd.DataFrame, *cands: str) -> Optional[str]:
 
 
 def read_lambdas_from_demand_csv(demand_csv: str) -> np.ndarray:
-    """
-    Robustly read lambda vector aligned by id, requiring depot id=0.
-    Returns lam array where lam[0]=0.
-    """
+    
     dem = pd.read_csv(demand_csv)
     did = _pick_col(dem, "id", "node", "index")
     lmd = _pick_col(dem, "lambda", "lam", "demand", "mu", "mean", "dem")
@@ -219,7 +213,7 @@ def main() -> None:
     print(f"Q deltas     : {Q_DELTAS}")
     print("=====================================================================\n")
 
-    # ---- import ALNS modules (prefer package import alns2.*) ----
+   
     if RUN_ALNS:
         try:
             from alns2.problem import build_instance_from_csv as build_alns_instance
@@ -247,7 +241,7 @@ def main() -> None:
             use_adaptive_selection=True,
         )
 
-    # ---- import HGS modules (prefer package import HGS_final.*) ----
+   
     if RUN_HGS:
         try:
             from HGS_final.problem import build_instance_from_csv as build_hgs_instance
@@ -261,7 +255,7 @@ def main() -> None:
                 f"Original error: {e}"
             )
 
-        # For evaluation we reuse ALNS evaluator for consistency
+        
         if not RUN_ALNS:
             from alns2.problem import normalize_routes as alns_normalize_routes
             from alns2.evaluator import ScenarioManager as ALNSScenarioManager
@@ -431,5 +425,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
 

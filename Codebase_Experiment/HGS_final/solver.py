@@ -39,10 +39,10 @@ def solve_vrpsd_with_hgs(
 
     model = Model()
 
-    # Single depot
+    # depot
     model.add_depot(x=0.0, y=0.0)
 
-    # Vehicle type: capacity and maximum available vehicles
+    # capacity and maximum available vehicles
     model.add_vehicle_type(
         capacity=Q,
         num_available=int(instance.K) if instance.K is not None else n - 1,
@@ -56,7 +56,7 @@ def solve_vrpsd_with_hgs(
             delivery=int(demands_int[idx]),
         )
 
-    # Add edges with integer distances (rounded)
+    # Add edges with integer distance
     locations = model.locations
     dist_int = np.rint(dist).astype(int)
     for i, frm in enumerate(locations):
@@ -81,4 +81,5 @@ def solve_vrpsd_with_hgs(
 
     cost = float(res.cost())
     return HGSPyVRPResult(routes=routes, cost=cost, raw_result=res)
+
 

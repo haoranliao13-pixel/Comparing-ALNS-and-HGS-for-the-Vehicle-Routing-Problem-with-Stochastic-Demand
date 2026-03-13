@@ -51,7 +51,7 @@ def plot_convergence_alns_style(
     try:
         from pyvrp.plotting import plot_objectives
 
-        # 1) Draw to a temporary axis so we can access the line data
+        
         fig_tmp, ax_tmp = plt.subplots()
         plot_objectives(pyvrp_result, ax=ax_tmp)
 
@@ -70,7 +70,7 @@ def plot_convergence_alns_style(
         y = best_line.get_ydata()
         plt.close(fig_tmp)
 
-        # 2) Re-plot in ALNS style: single line
+        
         fig, ax = plt.subplots(figsize=(6, 4))
         ax.plot(x, y, linewidth=1.5)
         ax.set_title(title)
@@ -108,4 +108,5 @@ def plot_convergence_pyvrp_native(
 
     except Exception as e:
         print("[WARN] plot_convergence_pyvrp_native failed:", e)
+
 

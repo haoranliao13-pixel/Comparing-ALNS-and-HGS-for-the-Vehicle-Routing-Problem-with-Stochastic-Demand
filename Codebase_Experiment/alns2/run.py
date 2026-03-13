@@ -3,7 +3,7 @@ import sys
 from typing import Optional
 import numpy as np
 import matplotlib.pyplot as plt
-import time  # for measuring solve time
+import time  
 
 if __package__ is None or __package__ == "":
     here = os.path.dirname(__file__)
@@ -146,4 +146,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
